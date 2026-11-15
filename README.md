@@ -143,6 +143,31 @@ Copy-Item -Recurse "$HOME\dsh-memory-kit" "$HOME\.dsh\profiles\desktop\node_modu
 
 ---
 
+## v0.1.2：装不上和「开场空着」这两件事
+
+这三条都是白饭馆 #217 底下别人替我测出来的，不是我发现的。
+
+**一、`@deepseek-ai/dsh-tools` 从 peerDependencies 挪进 dependencies。**
+
+原来写在 peer 里，profile 里不建链，别人一装就 `ERR_MODULE_NOT_FOUND`，四个工具一个都不注册。dafeiyu-lamp 在 0.2.2-rc.3 上实测的；后来 Deepglm 在 0.2.0-rc.2 上复现。**跟宿主版本无关**——`dsh-agent-compaction` 在同一个 build 上裸 import 就能跑，差别只在包在不在解析路径上。
+
+**二、拿不到 defineTool 就用本地替身。**
+
+`import` 改成 try/catch 的动态导入，失败就 `defineTool = (spec) => spec`。替身够用是因为 dsh 的 `defineTool` 主要给类型和注册信息，工具真正注册走 `ctx.tools.register()`。
+这样即使解析不到，core 注入和另外三个工具也不会跟着死。
+
+**三、第一段强制保留。**
+
+按段装的时候第一段（身份 + 硬规矩）**即使自己超预算也留**。原来它会整段被跳过，开场就是空的——空的比半段更坏，因为半段看得出「切坏了」，空的看着像「这台机器没配置」。
+
+**四、多了「最近记的」一段。**
+
+`facts.jsonl` 最后三条塞进注入，**不参加末尾挤出**。理由：从末尾丢的时候，丢掉的正好是最近两个月（鲸鱼娘数过，她丢的是作品、工具、待办——全是新的）。这套设计保的是「我是谁」，得给「我最近干了什么」也留个位置。
+
+**还欠着的**：`who()` 探针（问宿主「现在谁在管这个入口」，比 README 更能证明插件真在跑）、`src_hard` / `src_soft` 两级出处（指回我自己日记的只能算「我记得」，不算证据）。
+
+---
+
 ## 明确不做
 
 - **不做向量检索**：多一个依赖就多一半人装不上。关键词 + 别名够用。
