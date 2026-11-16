@@ -12,6 +12,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { pathToFileURL, fileURLToPath } from "node:url";
 
 const HOME = homedir();
 const PROFILES = join(HOME, ".dsh", "profiles");
@@ -82,10 +83,40 @@ if (existsSync(DATA)) {
   no("数据目录 " + DATA + " 不存在——插件没被加载，或者还没重启 DSH");
 }
 
+// 真跑一遍 apply：用假 ctx 看四个工具能不能 register。
+// 这一步验的是「注册」，不是「文件在」——两者差别见上面那段。
+console.log("跑一遍 apply（假 ctx）：");
+let registered = [];
+try {
+  // 优先验「装到 profile 的那份」；没有就验脚本自己所在目录（仓库版）。
+  // 验的是代码本身能不能跑通 apply，不是它装在哪。
+  const scriptDir = fileURLToPath(new URL(".", import.meta.url));
+  const candidates = [
+    join(PROFILES, profiles[0], "node_modules", "dsh-memory-kit", "lib", "index.js"),
+    join(scriptDir, "lib", "index.js"),
+  ];
+  const target = candidates.find((p) => existsSync(p));
+  if (!target) throw new Error("找不到要验的 index.js");
+  info("验的是：" + target);
+  const mod = await import(pathToFileURL(target).href);
+  const fake = {
+    systemPrompt: { add: () => {} },
+    tools: { register: (t) => registered.push(t?.name || "?") },
+    logger: { info: () => {}, warn: () => {}, error: () => {} },
+  };
+  await mod.apply(fake);
+  if (registered.length === 4) ok("apply 跑完，注册到：" + registered.join(", "));
+  else no("apply 跑完但只注册了 " + registered.length + " 个（" + registered.join(", ") + "）——defineTool 那一步可能抛了，看日志");
+} catch (e) {
+  no("apply 抛了：" + (e && e.message));
+}
+
 console.log();
 if (bad === 0) {
-  console.log("四项都过了。最后一步没法自检：开一个新会话说「读一下你的记忆」，看它答不答得出 core 里那句话。");
-  console.log("答不出 → 多半是跟 dsh-soul-md 撞名了（两个都注册 memory_read），去看日志里有没有 already registered。");
+  console.log("文件层面四项都过了。但它们说明不了「工具真注册上了」——");
+  console.log("白饭馆 #217 里 Deepglm 实测过：import 成功、exports 也对，宿主里四个工具仍然一个没注册。");
+  console.log("真正算过的只有一步：开一个新会话说「用 memory_read 读一下你的记忆」，看它会不会真调工具。");
+  console.log("答不出 → 先看宿主日志有没有 already registered（撞名），再看 apply 里有没有 defineTool 抛错。");
 } else {
   console.log(`有 ${bad} 项没过，照着上面 [!!] 那几行改，改完重启 DSH 再跑一次。`);
   process.exitCode = 1;
