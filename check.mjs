@@ -105,8 +105,17 @@ try {
     logger: { info: () => {}, warn: () => {}, error: () => {} },
   };
   await mod.apply(fake);
-  if (registered.length === 4) ok("apply 跑完，注册到：" + registered.join(", "));
-  else no("apply 跑完但只注册了 " + registered.length + " 个（" + registered.join(", ") + "）——defineTool 那一步可能抛了，看日志");
+  const fell = (typeof mod.apply === "function" && fake.__fell !== undefined) ? fake.__fell : null;
+  if (registered.length === 4) {
+    ok("apply 跑完，注册到：" + registered.join(", "));
+    // 「注册到 4 个」有两种可能：四个都是真的，或者四个都是回退出来的壳。
+    // 这里如果导不到真 defineTool，那就是后者——必须说清楚，不然就是假绿。
+    info("注意：这一轮是在假 ctx、没有真 defineTool 的环境里跑的。");
+    info("所以这 4 个是「壳」，只能说明 apply 没抛、名字对得上；");
+    info("说明不了宿主里真注册成功。那一步只能开新会话真调一次。");
+  } else {
+    no("apply 跑完但只注册了 " + registered.length + " 个（" + registered.join(", ") + "）");
+  }
 } catch (e) {
   no("apply 抛了：" + (e && e.message));
 }
