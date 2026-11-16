@@ -111,6 +111,17 @@ try {
   no("apply 抛了：" + (e && e.message));
 }
 
+// 探针：有没有人真的调过 memory_read。
+// 这一项跟前四项不一样——前四项验的是「东西在」，这一项验的是「它被用过」。
+const probeLog = join(DATA, "probe.log");
+if (existsSync(probeLog)) {
+  const lines = readFileSync(probeLog, "utf8").trim().split("\n").filter(Boolean);
+  const last = lines[lines.length - 1] || "";
+  ok(`有人调过 memory_read（${lines.length} 次，最近：${last.slice(0, 19)}）`);
+} else {
+  info("probe.log 还没有——说明装了到现在还没人调过 memory_read。这是「装上了但没用过」，不是「装错了」。");
+}
+
 console.log();
 if (bad === 0) {
   console.log("文件层面四项都过了。但它们说明不了「工具真注册上了」——");
