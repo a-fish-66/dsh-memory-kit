@@ -30,6 +30,34 @@ function findProfiles() {
 
 console.log("dsh-memory-kit 自检\n");
 
+// ---- 0. 判据自检（不需要宿主，纯函数，改了会立刻露） ----
+// 2026-11-18 补：出处分 hard / soft 两级 + 光时间戳必拒。
+// 起因：白饭馆轻影那条「不许判词冒充依据」—— 不是不能写判词，是不许它长得像依据。
+try {
+  const mod = await import(pathToFileURL(join(fileURLToPath(new URL(".", import.meta.url)), "lib", "index.js")).href);
+  const { srcOk, srcKind } = mod;
+  const cases = [
+    ["#189 的评论", "hard"],
+    ["https://github.com/pianVei/rice-bowl/issues/189", "hard"],
+    ["C:/Users/CHENG/aurabot/qq-chats/问题清单/工作.md", "hard"],
+    ["第 1720 轮", "hard"],
+    ["BV17Vxm6FEqy", "hard"],
+    ["转述：老大昨天说过大概这个意思", "soft"],
+  ];
+  let wrong = 0;
+  for (const [src, want] of cases) {
+    const got = srcKind(src);
+    if (got !== want) { wrong++; no("来源分级错：" + src + " 判成 " + (got || "空") + "，该是 " + want); }
+  }
+  if (!wrong) ok("来源分级 " + cases.length + " 条全对（hard / soft）");
+  // 光时间戳必须拒
+  if (srcOk("11-18 21:30")) no("光时间戳居然通过了：「11-18 21:30」");
+  else ok("光时间戳被拒（时间戳说明不了这话从哪来）");
+} catch (e) {
+  no("判据自检跑不起来：" + (e && e.message));
+}
+console.log();
+
 const profiles = findProfiles();
 if (!profiles.length) {
   no("找不到任何 profile：" + PROFILES);
